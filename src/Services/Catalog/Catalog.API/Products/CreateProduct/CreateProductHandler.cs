@@ -1,13 +1,32 @@
-﻿using BuildingBlocks.CQRS;
-using Catalog.API.Models;
-
+﻿
 namespace Catalog.API.Products.CreateProduct
 {
 
-    public record CreateProductCommand(string Name,List<string> Category,string Description,string ImageFile,decimal Price)
-        :ICommand<CreateProductresult>;
+    public record CreateProductCommand(
+        string Name,
+        List<string> Category,
+        string Description,
+        string ImageFile,
+        decimal Price)
+        : ICommand<CreateProductresult>;
+
+
     public record CreateProductresult(Guid Id);
-    public class CreateProductCommandHandler : ICommandHandler<CreateProductCommand, CreateProductresult>
+
+    public class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
+    {
+        public CreateProductCommandValidator()
+        {
+            RuleFor(x => x.Name).NotEmpty().WithMessage("Name is required");
+            RuleFor(x => x.Category).NotEmpty().WithMessage("Category is required");
+            RuleFor(x => x.ImageFile).NotEmpty().WithMessage("ImageFile is required");
+            RuleFor(x => x.Price).GreaterThan(0).WithMessage("Price must be greater than 0");
+        }
+    }
+
+
+
+    internal class CreateProductCommandHandler(IDocumentSession session) : ICommandHandler<CreateProductCommand, CreateProductresult>
     {
         public async Task<CreateProductresult> Handle(CreateProductCommand command, CancellationToken cancellationToken)
         {
@@ -24,8 +43,10 @@ namespace Catalog.API.Products.CreateProduct
                 Price = command.Price
             };
 
+            session.Store(Product);
+            await session.SaveChangesAsync(cancellationToken);
 
-            return  new CreateProductresult(Guid.NewGuid());
+            return new CreateProductresult(Product.Id);
         }
     }
 }
